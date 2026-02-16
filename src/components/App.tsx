@@ -29,8 +29,9 @@ export default function App() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         fitView
+        proOptions={{ hideAttribution: true }}
       >
-        <Background color="red" />
+        <Background />
         <Controls />
         <MiniMap />
       </ReactFlow>
