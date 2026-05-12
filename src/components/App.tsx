@@ -48,30 +48,36 @@ export default function App() {
         setFlowPosition(position);
         console.log(menuPosition, flowPosition)
     }
+
+    function onAddNode(event) {
+        if (!flowPosition) return;
+        const newNode = { id: crypto.randomUUID(), type: "default", position: { x: flowPosition.x, y: flowPosition.y }, data: { label: "Node 3" }, nodeClassName: "custom-node-wrapper" }
+        setNodes((nodes) => nodes.concat(newNode))
+        setShowNewNodeOptions(false)
+    }
     return (
         <div className="h-screen w-screen bg-pri">
-            <ReactFlowProvider>
-                <ReactFlow
-                    nodes={nodes}
-                    edges={edges}
-                    nodeTypes={nodeTypes}
-                    onNodesChange={onNodesChange}
-                    onEdgesChange={onEdgesChange}
-                    onConnect={onConnect}
-                    onPaneContextMenu={onPaneContextMenu}
-                    fitView
-                    connectionMode={ConnectionMode.Loose}
-                    proOptions={{ hideAttribution: true }}
-                    connectionLineType={ConnectionLineType.SmoothStep}
-                >
-                    <Background />
-                    <Controls className="border border-acc" />
-                    <MiniMap
-                        bgColor={"#030712"}
-                        maskColor={"transparent"}
-                        className="border border-acc"
-                    />
-                    { menuPosition && showNewNodeOptions && (
+            <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                nodeTypes={nodeTypes}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onPaneContextMenu={onPaneContextMenu}
+                fitView
+                connectionMode={ConnectionMode.Loose}
+                proOptions={{ hideAttribution: true }}
+                connectionLineType={ConnectionLineType.SmoothStep}
+            >
+                <Background />
+                <Controls className="border border-acc" />
+                <MiniMap
+                    bgColor={"#030712"}
+                    maskColor={"transparent"}
+                    className="border border-acc"
+                />
+                {menuPosition && showNewNodeOptions && (
                     <div
                         style={{
                             position: 'absolute',
@@ -81,11 +87,10 @@ export default function App() {
                         }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <NewNodeOptionsPopup />
+                        <NewNodeOptionsPopup onAddNode={onAddNode} />
                     </div>
-                    )}
-                </ReactFlow>
-            </ReactFlowProvider>
+                )}
+            </ReactFlow>
         </div>
     );
 }
