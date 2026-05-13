@@ -1,6 +1,5 @@
 import {
     ReactFlow,
-    ReactFlowProvider,
     Background,
     Controls,
     MiniMap,
@@ -11,20 +10,29 @@ import {
     useReactFlow
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { AllNodes, nodeTypes } from "../types/nodes.ts";
+import { nodeTypes } from "../types/nodes.ts";
 import NewNodeOptionsPopup from "./NewNodeOptionsPopup"
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function App() {
-    const [nodes, setNodes, onNodesChange] = useNodesState(AllNodes);
-    const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+    const [nodes, setNodes, onNodesChange] = useNodesState(() => {
+        const saved = localStorage.getItem('nodes');
+        return saved ? JSON.parse(saved) : [];
+    })
+    const [edges, setEdges, onEdgesChange] = useEdgesState(() => {
+        const saved = localStorage.getItem('edges');
+        return saved ? JSON.parse(saved) : [];
+    })
 
-    //  Store where to visually render the popup (screen coordinates)
-    const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
-    // Store where to actually place the node on the canvas (flow coordinates)
-    const [flowPosition, setFlowPosition] = useState<{ x: number; y: number } | null>(null);
+    const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null); //  Store where to visually render the popup (screen coordinates)
+    const [flowPosition, setFlowPosition] = useState<{ x: number; y: number } | null>(null); // Store where to actually place the node on the canvas (flow coordinates)
     const [showNewNodeOptions, setShowNewNodeOptions] = useState(false)
     const { screenToFlowPosition } = useReactFlow();
+
+    useEffect(() => {
+        localStorage.setItem('nodes', JSON.stringify(nodes))
+        localStorage.setItem('edges', JSON.stringify(edges))
+    }, [nodes, edges])
 
     const onConnect = (params) => {
         const newEdge = {
@@ -49,12 +57,13 @@ export default function App() {
         console.log(menuPosition, flowPosition)
     }
 
-    function onAddNode(event) {
+    function onAddNode() {
         if (!flowPosition) return;
         const newNode = { id: crypto.randomUUID(), type: "default", position: { x: flowPosition.x, y: flowPosition.y }, data: { label: "Node 3" }, nodeClassName: "custom-node-wrapper" }
         setNodes((nodes) => nodes.concat(newNode))
         setShowNewNodeOptions(false)
     }
+
     return (
         <div className="h-screen w-screen bg-pri">
             <ReactFlow
