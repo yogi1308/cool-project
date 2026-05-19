@@ -6,7 +6,7 @@ import App from './components/App.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ReactFlowProvider>
+    <ReactFlowProvider> {/* Provides React Flow context for hooks and coordinate transformations */}
       <App />
     </ReactFlowProvider>
   </StrictMode>,

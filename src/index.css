@@ -4,6 +4,7 @@
 @theme {
   --color-pri: #030712;
   --color-acc: #00bcff;
+  --color-text-pri: white;
 }
 
 .react-flow__node-default {

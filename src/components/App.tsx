@@ -7,34 +7,42 @@ import {
     ConnectionLineType,
     useNodesState,
     useEdgesState,
-    useReactFlow
+    useReactFlow,
+    type Connection,
+    type Node
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { nodeTypes } from "../types/nodes.ts";
-import NewNodeOptionsPopup from "./NewNodeOptionsPopup"
+import { NewNodeOptionsPopup, NodeOptionsPopup } from "./Popups.tsx"
 import { useState, useEffect } from "react";
 
 export default function App() {
+    // Initilizes Nodes and edges from localStorage
     const [nodes, setNodes, onNodesChange] = useNodesState(() => {
         const saved = localStorage.getItem('nodes');
         return saved ? JSON.parse(saved) : [];
     })
+
     const [edges, setEdges, onEdgesChange] = useEdgesState(() => {
         const saved = localStorage.getItem('edges');
         return saved ? JSON.parse(saved) : [];
     })
 
-    const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null); //  Store where to visually render the popup (screen coordinates)
-    const [flowPosition, setFlowPosition] = useState<{ x: number; y: number } | null>(null); // Store where to actually place the node on the canvas (flow coordinates)
+    const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null); // Screen coordinates for UI positioning
+    const [flowPosition, setFlowPosition] = useState<{ x: number; y: number } | null>(null); // Canvas coordinates for node placement
+    const [showNodeOptions, setShowNodeOptions] = useState(false)
     const [showNewNodeOptions, setShowNewNodeOptions] = useState(false)
-    const { screenToFlowPosition } = useReactFlow();
+    const [selectedNodeID, setSelectedNodeID] = useState<string | null>(null)
+    const { screenToFlowPosition } = useReactFlow(); // Helper to convert screen pixels to canvas coordinates
 
+    // Effect to auto-save canvas state whenever nodes or edges change
     useEffect(() => {
         localStorage.setItem('nodes', JSON.stringify(nodes))
         localStorage.setItem('edges', JSON.stringify(edges))
     }, [nodes, edges])
 
-    const onConnect = (params) => {
+    // Logic to handle drawing connections between nodes
+    const onConnect = (params: Connection) => {
         const newEdge = {
             ...params,
             id: `edge-${params.source}-${params.target}-${crypto.randomUUID()}`,
@@ -43,9 +51,11 @@ export default function App() {
         };
         setEdges((eds) => [...eds, newEdge]);
     };
-    function onPaneContextMenu(event) {
+
+    // Triggered when right-clicking the canvas background
+    function onPaneContextMenu(event: React.MouseEvent | MouseEvent) {
         event.preventDefault()
-        setShowNewNodeOptions(() => true)
+        setShowNewNodeOptions(() => true) // Open our custom context menu
 
         // 1. Save the screen coordinates so the popup renders exactly where you clicked
         const clientPosition = { x: event.clientX, y: event.clientY };
@@ -54,14 +64,39 @@ export default function App() {
         // 2. Translate those screen coordinates into flow coordinates for the node
         const position = screenToFlowPosition(clientPosition);
         setFlowPosition(position);
-        console.log(menuPosition, flowPosition)
+        setShowNodeOptions(false)
     }
 
-    function onAddNode() {
-        if (!flowPosition) return;
-        const newNode = { id: crypto.randomUUID(), type: "default", position: { x: flowPosition.x, y: flowPosition.y }, data: { label: "Node 3" }, nodeClassName: "custom-node-wrapper" }
-        setNodes((nodes) => nodes.concat(newNode))
+    function onNodeContextMenu(event: React.MouseEvent | MouseEvent, node: Node) {
+        event.preventDefault()
+        setShowNodeOptions(true)
+
+        const clientPosition = { x: event.clientX, y: event.clientY };
+        setMenuPosition(clientPosition);
+
+        setSelectedNodeID(node.id)
         setShowNewNodeOptions(false)
+    }
+
+    // Called by the popup to actually spawn a node
+    function onAddNode() {
+        if (!flowPosition) return; // Safety check
+        const newNode = {
+            id: crypto.randomUUID(),
+            type: "default",
+            position: { x: flowPosition.x, y: flowPosition.y },
+            data: { label: "Node 3" },
+            nodeClassName: "custom-node-wrapper"
+        }
+        setNodes((nodes) => nodes.concat(newNode)) // Immutable state update
+        setShowNewNodeOptions(false) // Close the menu after action
+    }
+
+    function onDeleteNode() {
+        if (!selectedNodeID) return
+        setNodes((nodes) => nodes.filter((node) => node.id != selectedNodeID))
+        setEdges((edges) => edges.filter((edge) => edge.source != selectedNodeID && edge.target != selectedNodeID))
+        setShowNodeOptions(false)
     }
 
     return (
@@ -70,22 +105,24 @@ export default function App() {
                 nodes={nodes}
                 edges={edges}
                 nodeTypes={nodeTypes}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                onPaneContextMenu={onPaneContextMenu}
+                onNodeContextMenu={onNodeContextMenu}
+                onNodesChange={onNodesChange} // Handles built-in drag/delete actions
+                onEdgesChange={onEdgesChange} // Handles edge interactions
+                onConnect={onConnect} // Handles drawing new connections
+                onPaneClick={() => {setShowNodeOptions(false); setShowNewNodeOptions(false)}}
+                onPaneContextMenu={onPaneContextMenu} // Custom right-click handler
                 fitView
                 connectionMode={ConnectionMode.Loose}
                 proOptions={{ hideAttribution: true }}
                 connectionLineType={ConnectionLineType.SmoothStep}
             >
-                <Background />
-                <Controls className="border border-acc" />
+                <Background /> {/* Grid/Dot background pattern */}
+                <Controls className="border border-acc" /> {/* Zoom/Fit controls */}
                 <MiniMap
                     bgColor={"#030712"}
                     maskColor={"transparent"}
                     className="border border-acc"
-                />
+                /> {/* Overview map in the corner */}
                 {menuPosition && showNewNodeOptions && (
                     <div
                         style={{
@@ -94,9 +131,22 @@ export default function App() {
                             top: menuPosition.y,
                             zIndex: 1000
                         }}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()} // Prevent clicking the menu from affecting the canvas
                     >
-                        <NewNodeOptionsPopup onAddNode={onAddNode} />
+                        <NewNodeOptionsPopup onAddNode={onAddNode} /> {/* Our custom UI overlay */}
+                    </div>
+                )}
+                {menuPosition && showNodeOptions && (
+                    <div
+                        style={{
+                            position: 'absolute',
+                            left: menuPosition.x,
+                            top: menuPosition.y,
+                            zIndex: 1000
+                        }}
+                        onClick={(e) => e.stopPropagation()} // Prevent clicking the menu from affecting the canvas
+                    >
+                        <NodeOptionsPopup onDeleteNode={onDeleteNode} /> {/* Our custom UI overlay */}
                     </div>
                 )}
             </ReactFlow>
